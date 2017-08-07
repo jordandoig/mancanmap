@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Map</title>
+    <style media="screen">
+      html, body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+      }
+
+      #map {
+        height: 95%;
+        width: 100%;
+      }
+
+      .aboveMap {
+        height: 40px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+
+      .infoWindow {
+        display: flex;
+        margin-top: 5px;
+        margin-bottom: 5px;
+      }
+
+      .infoWindowTitle {
+        font-weight: bold;
+        color: #263745;
+      }
+
+      .infoWindowText {
+        margin: 2px;
+        text-decoration: none;
+        color: #5e6973;
+      }
+
+      .infoWindowImg {
+        margin-left: 10px;
+      }
+
+      .infoWindowUrl {
+        color: #e94f3d;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="aboveMap">
+      <img src="https://static1.squarespace.com/static/59611bd6d1758e6a0d9a1b79/t/5983b50cd7bdcee0bc8c1f48/1501803792940/?format=100w" alt="Search Icon">
+      <input id="searchInput" type="text" name="search" class="search" placeholder="Search by city, state, or zip code">
+      <input onclick="toggleBreweries()" type="checkbox" name="breweries" checked>
+      <label for="breweries">Places to Fill</label>
+      <input onclick="toggleRetailers()" type="checkbox" name="retailers" checked>
+      <label for="retailers">Places to Buy</label>
+    </div>
+
+    <div class="breweryMap" id="map"></div>
+
+    <script type="text/javascript">
+      let retailers = [
+        {
+          title: 'Mt. Lowe Brewing Company',
+          address1: '150 E St Joseph St',
+          address2: 'Arcadia, CA 90016',
+          phone: '626-244-7593',
+          url: 'www.mtlowebrewing.com',
+          lat: 34.1432173,
+          lng: -118.0262271
+        },
+        {
+          title: "The Dreamchaser's Brewery",
+          address1: '115 E North Main St',
+          address2: 'Waxhaw, NC 28173',
+          phone: '704-843-7326',
+          url: 'www.dreamchasersbrewery.com',
+          lat: 34.9253275,
+          lng: -80.7429733
+        },
+        {
+          title: 'Hexagon Brewing Company',
+          address1: '1002 Dutch Valley Dr, STE 101',
+          address2: 'Knoxville, TN 37918',
+          phone: '865-888-5138',
+          url: 'www.hexagonbrewing.com',
+          lat: 36.0082784,
+          lng: -83.94814579999999
+        },
+        {
+          title: 'Peaks N Pines Brewery',
+          address1: '4005 Tutt Blvd',
+          address2: 'Colorado Springs, CO 80922',
+          phone: '719-358-6758',
+          url: 'www.peaksnpinesbrewery.com',
+          lat: 38.88987400000001,
+          lng: -104.71389
+        },
+        {
+          title: "Abita Brewing Company",
+          address1: '21084 LA-36',
+          address2: 'Covington, LA 70433',
+          phone: '985-893-3143',
+          url: 'www.abita.com',
+          lat: 30.482138,
+          lng: -90.05518499999999
+        },
+        {
+          title: 'Bootleg Brewers',
+          address1: '45145 829th Rd',
+          address2: 'Taylor, NE 68879',
+          phone: '308-942-3440',
+          url: 'www.bootlegbrewers.com',
+          lat: 41.866327,
+          lng: -99.42796469999999
+        },
+        {
+          title: 'The Ginn Mill',
+          address1: '2041 Larimer St',
+          address2: 'Denver, CO 80205',
+          phone: '303-295-0706',
+          url: 'www.theginnmill.com',
+          lat: 39.7537593,
+          lng: -104.9919948
+        },
+        {
+          title: "Declaration Brewing Company",
+          address1: '2030 S Cherokee St',
+          address2: 'Denver, CO 80223',
+          phone: '303-955-7410',
+          url: 'www.declarationbrewing.com',
+          lat: 39.6797757,
+          lng: -104.9907693
+        },
+        {
+          title: 'Prost Brewing Company',
+          address1: '2540 19th St',
+          address2: 'Denver, CO 80211',
+          phone: '303-729-1175',
+          url: 'www.prostbrewing.com',
+          lat: 39.761403,
+          lng: -105.0067221
+        },
+        {
+          title: 'The Walter Brewing Company',
+          address1: '126 Oneida St',
+          address2: 'Pueblo, CO 81003',
+          phone: '719-542-0766',
+          url: 'www.waltersbeer.com',
+          lat: 38.2625102,
+          lng: -104.6100307
+        },
+        {
+          title: "Little Machine Beer",
+          address1: '2924 W 20th Ave',
+          address2: 'Denver, CO 80211',
+          phone: '303-284-7893',
+          url: 'www.littlemachinebeer.com',
+          lat: 39.747316,
+          lng: -105.024345
+        }
+      ];
+      let baseURL = 'https://galvanize-cors.herokuapp.com/http://api.brewerydb.com/v2/locations?key=bc1fea5972628cd4d8e98eb2743d2137&isClosed=N&inPlanning=N&locationType=micro,nano,brewpub,tasting&countryIsoCode=US&order=status';
+      let map;
+      let centerLocation = {
+        lat: 39.83,
+        lng: -98.56
+      };
+      let mapZoom = 5;
+      let markers = [];
+      let openwindow = null;
+      let showRetailers = true;
+      let showBreweries = true;
+
+      getLocation = () => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(setUserLocation, makeInitMap);
+        } else {
+          console.log("Geolocation is not supported on this browser. :(");
+          makeInitMap();
+        }
+      }
+
+      setUserLocation = (position) => {
+        centerLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        }
+        mapZoom = 10;
+        makeInitMap();
+      }
+
+      makeInitMap = async () => {
+        input = document.getElementById('searchInput');
+        searchBox = new google.maps.places.SearchBox(input);
+
+        map = new google.maps.Map(document.getElementById('map'), {
+          center: centerLocation,
+          zoom: mapZoom
+        });
+
+        searchBox.addListener('places_changed', function() {
+          places = searchBox.getPlaces();
+
+          if (places && places.length == 0) {
+            return;
+          }
+
+          let newLocation = {};
+          newLocation.lat = places[0].geometry.location.lat();
+          newLocation.lng = places[0].geometry.location.lng();
+          newUserLocation(newLocation);
+        });
+
+        await retailers.map(item => {
+          createRetailerMarker(item);
+        })
+        createCluster();
+        callBreweryDB();
+      }
+
+      newUserLocation = (position) => {
+        map.panTo(position);
+        map.setZoom(10);
+      }
+
+      callBreweryDB = () => {
+        $.get(baseURL)
+        .then(function (data) {
+          updateBreweries(data.data);
+          var nextPage = data.currentPage + 1;
+          var pageCount = data.numberOfPages;
+          nextBreweryDBPage(nextPage, pageCount);
+        })
+      }
+
+      nextBreweryDBPage = (page, pageCount) => {
+        $.get(baseURL + '&p=' + page)
+        .then(function (data) {
+          updateBreweries(data.data);
+          if (page + 1 <= pageCount) {
+            nextBreweryDBPage(page + 1, pageCount);
+          }
+        })
+      }
+
+      updateBreweries = (brewArr) => {
+        brewArr.filter(function (brewery) {
+          return brewery.openToPublic === 'Y';
+        }).map(function (brewery) {
+          createBreweryMarker({
+            title: brewery.brewery.name,
+            address: brewery.streetAddress,
+            city: brewery.locality,
+            state: brewery.region,
+            zipCode: brewery.postalCode,
+            phone: brewery.phone,
+            url: brewery.website,
+            lat: Number(brewery.latitude),
+            lng: Number(brewery.longitude)
+          })
+        })
+      }
+
+      createRetailerMarker = (obj) => {
+        if (showRetailers) {
+          var onMap = map;
+        } else {
+          var onMap = null;
+        }
+        let position = {lat: obj.lat, lng: obj.lng};
+        let icon = {
+          url: 'https://static1.squarespace.com/static/59611bd6d1758e6a0d9a1b79/t/5981f92f15d5db5c583eb475/1501690165430/?format=100w',
+          scaledSize: new google.maps.Size(35, 35)
+        }
+        let marker = new google.maps.Marker({
+          position: position,
+          map: onMap,
+          icon: icon
+        });
+        marker.category = 'retailer';
+        markers.push(marker);
+        createRetailerInfoWindow(obj, marker);
+      }
+
+      createBreweryMarker = (brewery) => {
+        if (showBreweries) {
+          var onMap = map;
+        } else {
+          var onMap = null;
+        }
+        var icon = {
+          url: 'https://static1.squarespace.com/static/59611bd6d1758e6a0d9a1b79/t/5981f923be65946c0541ff92/1501690151092/?format=100w',
+          scaledSize: new google.maps.Size(35, 35)
+        };
+        var marker = new google.maps.Marker({
+          position: {lat: brewery.lat, lng: brewery.lng},
+          map: onMap,
+          icon: icon
+        });
+        marker.category = 'brewery';
+        markers.push(marker);
+        createInfoWindow(brewery, marker);
+      }
+
+      createRetailerInfoWindow = (obj, marker) => {
+        let infowindow = new google.maps.InfoWindow({
+          content: '<div class="infoWindow"><div class="infoWindowLeft">' + '<b class="infoWindowTitle">' + obj.title + '</b>' + '<p class="infoWindowText">' + obj.address1 + '</p>' + '<p class="infoWindowText">' + obj.address2 + '</p>' + '<a class="infoWindowText" target="_blank" href="' + obj.phone + '">' + obj.phone + '</a><br/>' + '<a class="infoWindowUrl" target="_blank" href="http://' + obj.url + '">' + obj.url + '</a>' + '</div><div class="infoWindowRight"><img class="infoWindowImg" src="https://static1.squarespace.com/static/59611bd6d1758e6a0d9a1b79/t/5987479cd2b857274d1cb738/1502037919463/?format=100w"</div></div>'
+        })
+        marker.addListener('click', function () {
+          closeWindow();
+          openwindow = infowindow;
+          infowindow.open(map, marker);
+          map.panTo(marker.position);
+        })
+      }
+
+      createInfoWindow = (brewery, marker) => {
+        var content = '<div class="infoWindow"><div class="infoWindowLeft">';
+        if (brewery.title) {
+          content += '<b class="infoWindowTitle">' + brewery.title + '</b>';
+        }
+        if (brewery.address) {
+          content += '<p class="infoWindowText">' + brewery.address + '</p>';
+        }
+        var cityline = '<p class="infoWindowText">';
+        if (brewery.city) {
+          cityline += brewery.city;
+        }
+        if (brewery.state) {
+          cityline += ', ' + brewery.state;
+        }
+        if (brewery.zipCode) {
+          cityline += ', ' + brewery.zipCode;
+        }
+        if (cityline.length > 3) {
+          cityline += '</p>';
+          content += cityline;
+        }
+        if (brewery.phone) {
+          var arr = brewery.phone.split('').map(function (item) {
+            return parseInt(item);
+          }).filter(function (num) {
+            return num > -1 && num < 10;
+          })
+          if (arr.length === 10) {
+            var nums = arr.join('');
+            var phone = nums.slice(0, 3) + '-' + nums.slice(3, 6) + '-' + nums.slice(6);
+            content += '<a class="infoWindowText" target="_blank" href="' + phone + '">' + phone + '</a><br/>'
+          } else if (arr.length === 11) {
+            var nums = arr.join('');
+            var phone = nums.slice(1, 4) + '-' + nums.slice(4, 7) + '-' + nums.slice(7);
+            content += '<a class="infoWindowText" target="_blank" href="tel:' + phone + '">' + phone + '</a><br/>'
+          }
+        }
+        if (brewery.url) {
+          content += '<a class="infoWindowUrl" target="_blank" href="' + brewery.url + '">' + brewery.url + '</a>'
+        }
+        content += '</div><div class="infoWindowRight"><img class="infoWindowImg" src="https://static1.squarespace.com/static/59611bd6d1758e6a0d9a1b79/t/5987478ff5e231e93c744572/1502037908597/?format=100w" /></div></div>'
+        var infowindow = new google.maps.InfoWindow({
+          content: content
+        });
+        marker.addListener('click', function () {
+          closeWindow();
+          openwindow = infowindow;
+          infowindow.open(map, marker);
+          map.panTo(marker.position);
+        });
+        if (showBreweries) {
+          addMarkerToCluster(marker);
+        }
+      }
+
+      closeWindow = () => {
+        if (openwindow) {
+          openwindow.close();
+        }
+      }
+
+      toggleRetailers = () => {
+        if (showRetailers) {
+          showRetailers = false;
+          clearRetailers();
+        } else {
+          showRetailers = true;
+          displayRetailers();
+        }
+      }
+
+      clearRetailers = () => {
+        setMapOnRetailers(null);
+      }
+
+      displayRetailers = () => {
+        setMapOnRetailers(map);
+      }
+
+      setMapOnRetailers = (item) => {
+        for (var i = 0; i < markers.length; i++) {
+          if (markers[i].category === 'retailer') {
+            markers[i].setMap(item);
+          }
+        }
+        markerCluster.clearMarkers();
+        if (item !== null) {
+          for (var i = 0; i < markers.length; i++) {
+            if (markers[i].category === 'retailer') {
+              addMarkerToCluster(markers[i]);
+            }
+          }
+        }
+        if (showBreweries) {
+          for (var i = 0; i < markers.length; i++) {
+            if (markers[i].category === 'brewery') {
+              addMarkerToCluster(markers[i]);
+            }
+          }
+        }
+      }
+
+      toggleBreweries = () => {
+        if (showBreweries) {
+          showBreweries = false;
+          clearBreweries();
+        } else {
+          showBreweries = true;
+          displayBreweries();
+        }
+      }
+
+      clearBreweries = () => {
+        setMapOnBreweries(null);
+      }
+
+      displayBreweries = () => {
+        setMapOnBreweries(map);
+      }
+
+      setMapOnBreweries = item => {
+        for (var i = 0; i < markers.length; i++) {
+          if (markers[i].category === 'brewery') {
+            markers[i].setMap(item);
+          }
+        }
+        markerCluster.clearMarkers();
+        if (item !== null) {
+          for (var i = 0; i < markers.length; i++) {
+            if (markers[i].category === 'brewery') {
+              addMarkerToCluster(markers[i]);
+            }
+          }
+        }
+        if (showRetailers) {
+          for (var i = 0; i < markers.length; i++) {
+            if (markers[i].category === 'retailer') {
+              addMarkerToCluster(markers[i]);
+            }
+          }
+        }
+      }
+
+      addMarkerToCluster = (marker) => {
+        markerCluster.addMarker(marker);
+      }
+
+      createCluster = () => {
+        markerCluster = new MarkerClusterer(map, markers, {imagePath: 'https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/m'});
+      }
+    </script>
+
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+    <script src="https://lexi-steele-5b3s.squarespace.com/s/markerCluster.js"></script>
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAJhUeZBBVjZZ6N85WgQeW28l1ZvWa29Vo&libraries=places&callback=getLocation"></script>
+  </body>
+</html>
